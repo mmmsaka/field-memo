@@ -237,7 +237,7 @@
 // =============================
 const firebaseConfig = {
   apiKey: "AIzaSyBsgawXLm_r-k9zdxjdUKS91JoNZAm00mk",
-  authDomain: "field-memo.netlify.app",
+  authDomain: "field-memo.firebaseapp.com",
   databaseURL: "https://field-memo-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "field-memo",
   storageBucket: "field-memo.firebasestorage.app",
@@ -274,10 +274,14 @@ function skipSync() {
 
 function signInWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  // リダイレクト方式（スマホ対応）
-  auth.signInWithRedirect(provider).catch(e => {
-    console.error(e);
-    showToast('❌ サインインエラー: ' + e.message);
+  provider.addScope('email');
+  provider.addScope('profile');
+  // ポップアップ方式
+  auth.signInWithPopup(provider).then(result => {
+    console.log('サインイン成功:', result.user.email);
+  }).catch(e => {
+    console.error('サインインエラー:', e.code, e.message);
+    showToast('❌ ' + e.message);
   });
 }
 
@@ -289,16 +293,6 @@ function signOut() {
   updateSyncUI('local','ローカルモード');
   showToast('サインアウトしました');
 }
-
-// リダイレクト後の結果を処理
-auth.getRedirectResult().then(result => {
-  if (result && result.user) {
-    console.log('リダイレクトサインイン成功:', result.user.email);
-  }
-}).catch(e => {
-  console.error('リダイレクトエラー:', e);
-  showToast('❌ サインインエラー: ' + e.message);
-});
 
 auth.onAuthStateChanged(user => {
   document.getElementById('authOverlay').classList.remove('visible');
