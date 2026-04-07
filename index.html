@@ -274,7 +274,8 @@ function skipSync() {
 
 function signInWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch(e => {
+  // リダイレクト方式（スマホ対応）
+  auth.signInWithRedirect(provider).catch(e => {
     console.error(e);
     showToast('❌ サインインエラー: ' + e.message);
   });
@@ -288,6 +289,16 @@ function signOut() {
   updateSyncUI('local','ローカルモード');
   showToast('サインアウトしました');
 }
+
+// リダイレクト後の結果を処理
+auth.getRedirectResult().then(result => {
+  if (result && result.user) {
+    console.log('リダイレクトサインイン成功:', result.user.email);
+  }
+}).catch(e => {
+  console.error('リダイレクトエラー:', e);
+  showToast('❌ サインインエラー: ' + e.message);
+});
 
 auth.onAuthStateChanged(user => {
   document.getElementById('authOverlay').classList.remove('visible');
