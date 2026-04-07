@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FIELD MEMO</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #141414; --surface2: #1e1e1e;
+    --border: #2a2a2a; --accent: #e8ff00; --accent2: #ff6b35;
+    --text: #f0f0f0; --text-dim: #666; --text-mid: #999;
+    --danger: #ff4444; --rec: #ff3b30; --green: #30d158;
+    --radius: 16px; --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans JP', sans-serif; min-height: 100dvh; overflow-x: hidden; padding-bottom: env(safe-area-inset-bottom, 20px); }
+
+  .sync-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 20px; display: flex; align-items: center; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; transition: background 0.3s; }
+  .sync-dot.synced { background: var(--green); }
+  .sync-dot.syncing { background: var(--accent); animation: pulse-sync 0.8s infinite; }
+  .sync-dot.error { background: var(--danger); }
+  .sync-dot.local { background: var(--accent2); }
+  @keyframes pulse-sync { 0%,100%{opacity:1}50%{opacity:0.3} }
+  .sync-text { color: var(--text-mid); flex: 1; font-size: 11px; }
+  .sync-btn { background: none; border: 1px solid var(--border); color: var(--text-mid); font-size: 11px; padding: 3px 10px; border-radius: 100px; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all 0.15s; }
+  .sync-btn.connect { border-color: var(--accent); color: var(--accent); }
+  .sync-btn:active { background: var(--surface2); }
+
+  .header { position: sticky; top: 0; z-index: 100; background: rgba(10,10,10,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px; color: var(--accent); line-height: 1; }
+  .logo span { color: var(--text-dim); font-size: 10px; letter-spacing: 2px; display: block; font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .btn-icon { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; transition: all 0.15s; }
+  .btn-icon:active { transform: scale(0.92); background: var(--surface2); }
+
+  .view-switch { display: flex; background: var(--surface); border-radius: 100px; padding: 3px; margin: 12px 20px 0; }
+  .tab-btn { flex: 1; padding: 8px 12px; border-radius: 100px; border: none; background: transparent; color: var(--text-dim); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+  .tab-btn.active { background: var(--accent); color: #000; font-weight: 700; }
+
+  .new-memo-area { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .input-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; transition: border-color 0.2s; }
+  .input-card:focus-within { border-color: var(--accent); }
+  .memo-textarea { width: 100%; min-height: 80px; background: transparent; border: none; outline: none; padding: 16px; color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 15px; line-height: 1.6; resize: none; }
+  .memo-textarea::placeholder { color: var(--text-dim); }
+
+  .attachments-preview { display: flex; gap: 8px; padding: 0 12px 12px; flex-wrap: wrap; }
+  .attach-thumb { position: relative; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+  .attach-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .attach-thumb .remove-btn { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; background: rgba(0,0,0,0.75); border-radius: 50%; border: none; color: white; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .audio-preview { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(232,255,0,0.06); border-radius: 10px; border: 1px solid rgba(232,255,0,0.2); font-size: 13px; color: var(--accent); width: 100%; }
+  .audio-preview .duration { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-mid); margin-left: auto; }
+
+  .rec-indicator { display: none; align-items: center; gap: 8px; padding: 10px 16px; background: rgba(255,59,48,0.1); border-top: 1px solid rgba(255,59,48,0.3); font-size: 13px; color: var(--rec); }
+  .rec-indicator.visible { display: flex; }
+  .rec-dot { width: 8px; height: 8px; background: var(--rec); border-radius: 50%; animation: pulse-rec 1s infinite; }
+  @keyframes pulse-rec { 0%,100%{opacity:1}50%{opacity:0.3} }
+  .rec-timer { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 14px; }
+  .stop-rec-btn { margin-left: auto; padding: 5px 14px; background: var(--rec); color: white; border: none; border-radius: 100px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+  .tag-row { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-top: 1px solid var(--border); overflow-x: auto; }
+  .quick-tag { white-space: nowrap; padding: 5px 12px; border-radius: 100px; border: 1px solid var(--border); background: transparent; color: var(--text-mid); font-size: 12px; cursor: pointer; transition: all 0.15s; font-family: 'Noto Sans JP', sans-serif; }
+  .quick-tag.selected { background: rgba(232,255,0,0.12); border-color: var(--accent); color: var(--accent); }
+
+  .input-toolbar { display: flex; align-items: center; padding: 8px 12px; border-top: 1px solid var(--border); gap: 4px; }
+  .tool-btn { width: 38px; height: 38px; border-radius: var(--radius-sm); border: none; background: transparent; color: var(--text-mid); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .tool-btn:active, .tool-btn.active-tool { background: var(--surface2); color: var(--accent); }
+  .tool-btn.recording { color: var(--rec); animation: pulse-rec 1s infinite; }
+  .spacer { flex: 1; }
+  .submit-btn { height: 38px; padding: 0 18px; background: var(--accent); color: #000; border: none; border-radius: 100px; font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+  .submit-btn:active { transform: scale(0.95); }
+
+  .search-bar { padding: 12px 20px; border-bottom: 1px solid var(--border); }
+  .search-input-wrap { display: flex; align-items: center; background: var(--surface); border-radius: 12px; border: 1px solid var(--border); padding: 0 14px; gap: 8px; transition: border-color 0.2s; }
+  .search-input-wrap:focus-within { border-color: var(--accent); }
+  .search-input { flex: 1; background: transparent; border: none; outline: none; height: 42px; color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px; }
+  .search-input::placeholder { color: var(--text-dim); }
+
+  .memo-list { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .memo-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; animation: slide-in 0.25s ease; }
+  @keyframes slide-in { from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)} }
+  .memo-header { display: flex; align-items: center; padding: 12px 14px 8px; gap: 8px; }
+  .memo-type-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .type-text{background:rgba(232,255,0,0.12)} .type-audio{background:rgba(255,107,53,0.15)} .type-photo{background:rgba(48,209,88,0.12)} .type-mixed{background:rgba(100,100,255,0.12)}
+  .memo-meta { flex: 1; min-width: 0; }
+  .memo-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); display: block; }
+  .memo-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+  .tag-chip { font-size: 10px; padding: 2px 7px; border-radius: 100px; background: rgba(232,255,0,0.1); color: var(--accent); border: 1px solid rgba(232,255,0,0.2); }
+  .memo-actions { display: flex; gap: 4px; }
+  .action-btn { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; transition: all 0.15s; }
+  .action-btn:active { background: var(--surface2); }
+  .memo-body { padding: 0 14px 14px; }
+  .memo-text { font-size: 14px; line-height: 1.65; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+  .memo-text.collapsed { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .expand-btn { font-size: 12px; color: var(--accent); background: none; border: none; cursor: pointer; padding: 4px 0; font-family: 'Noto Sans JP', sans-serif; }
+  .audio-player { margin-top: 10px; background: var(--surface2); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+  .play-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--accent2); border: none; color: white; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.15s; }
+  .play-btn:active { transform: scale(0.9); }
+  .audio-progress-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .audio-progress { -webkit-appearance: none; width: 100%; height: 3px; background: var(--border); border-radius: 100px; outline: none; cursor: pointer; }
+  .audio-progress::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; background: var(--accent2); border-radius: 50%; }
+  .audio-time { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim); display: flex; justify-content: space-between; }
+  .transcript { margin-top: 8px; padding: 10px 12px; background: rgba(255,107,53,0.07); border-radius: 10px; border-left: 2px solid var(--accent2); font-size: 13px; color: var(--text-mid); line-height: 1.6; }
+  .transcript-label { font-size: 10px; font-weight: 700; color: var(--accent2); letter-spacing: 1px; margin-bottom: 4px; font-family: 'JetBrains Mono', monospace; }
+  .photo-grid { display: grid; gap: 6px; margin-top: 10px; }
+  .photo-grid.count-1{grid-template-columns:1fr} .photo-grid.count-2{grid-template-columns:1fr 1fr} .photo-grid.count-3{grid-template-columns:1fr 1fr} .photo-grid.count-3 .photo-item:first-child{grid-column:1/-1} .photo-grid.count-4{grid-template-columns:1fr 1fr}
+  .photo-item { border-radius: 10px; overflow: hidden; aspect-ratio: 4/3; cursor: pointer; }
+  .photo-item img { width: 100%; height: 100%; object-fit: cover; }
+
+  .empty-state { text-align: center; padding: 60px 30px; color: var(--text-dim); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-text { font-size: 14px; line-height: 1.6; }
+
+  .photo-viewer { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+  .photo-viewer.visible { display: flex; }
+  .photo-viewer img { max-width: 100%; max-height: 100%; border-radius: 12px; object-fit: contain; }
+  .close-viewer { position: fixed; top: 20px; right: 20px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+
+  .date-sep { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .date-sep-line { flex: 1; height: 1px; background: var(--border); }
+  .date-sep-text { font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+
+  .toast { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom,0px)); left: 50%; transform: translateX(-50%) translateY(100px); background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 20px; border-radius: 100px; font-size: 13px; z-index: 999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; max-width: 90vw; text-align: center; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Auth Overlay */
+  .auth-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 500; align-items: center; justify-content: center; padding: 30px; }
+  .auth-overlay.visible { display: flex; }
+  .auth-card { background: var(--surface); border-radius: 20px; border: 1px solid var(--border); padding: 30px 24px; max-width: 360px; width: 100%; text-align: center; }
+  .auth-icon { font-size: 48px; margin-bottom: 16px; }
+  .auth-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px; color: var(--accent); margin-bottom: 8px; }
+  .auth-desc { font-size: 13px; color: var(--text-mid); line-height: 1.6; margin-bottom: 24px; }
+  .google-btn { width: 100%; padding: 14px; background: white; color: #333; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.15s; margin-bottom: 12px; font-family: 'Noto Sans JP', sans-serif; }
+  .google-btn:active { transform: scale(0.97); }
+  .skip-btn { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 12px; border-radius: 12px; width: 100%; font-size: 13px; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; transition: all 0.15s; }
+  .skip-btn:active { background: var(--surface2); color: var(--text); }
+
+  /* Setup Guide */
+  .setup-guide { display: none; background: var(--surface); border-radius: var(--radius); border: 1px solid rgba(232,255,0,0.3); padding: 20px; margin: 16px 20px; }
+  .setup-guide.visible { display: block; }
+  .setup-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: var(--accent); margin-bottom: 12px; }
+  .setup-step { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
+  .step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #000; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+  .step-text { font-size: 13px; color: var(--text-mid); line-height: 1.6; }
+  .step-text a { color: var(--accent); text-decoration: none; }
+  .step-text code { background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent2); }
+  .client-id-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none; margin-top: 8px; }
+  .client-id-input:focus { border-color: var(--accent); }
+  .save-client-id-btn { margin-top: 8px; width: 100%; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
+
+  #photoInput { display: none; }
+  ::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+
+<!-- Auth Overlay -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <div class="auth-icon">☁️</div>
+    <div class="auth-title">CLOUD SYNC</div>
+    <div class="auth-desc">Googleアカウントと連携すると、PCとスマホ間でメモが自動同期されます。</div>
+    <button class="google-btn" onclick="signInGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+      Googleでサインイン
+    </button>
+    <button class="skip-btn" id="skipBtnOverlay" onclick="skipSync()">このデバイスだけで使う（同期なし）</button>
+  </div>
+</div>
+
+<!-- Sync Bar -->
+<div class="sync-bar" id="syncBar">
+  <div class="sync-dot local" id="syncDot"></div>
+  <span class="sync-text" id="syncText">ローカルモード</span>
+  <button class="sync-btn connect" id="syncActionBtn" onclick="showAuthOverlay()">接続する</button>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">FIELD MEMO<span>QUICK CAPTURE</span></div>
+  <div class="header-actions">
+    <button class="btn-icon" id="exportBtn">⬇</button>
+  </div>
+</div>
+
+<!-- View Switch -->
+<div style="padding:0;">
+  <div class="view-switch">
+    <button class="tab-btn active" onclick="switchView('new')">＋ 新規</button>
+    <button class="tab-btn" onclick="switchView('list')">📋 一覧</button>
+  </div>
+</div>
+
+<!-- Setup Guide（Client ID未設定時に表示） -->
+<div class="setup-guide" id="setupGuide">
+  <div class="setup-title">☁️ 同期セットアップ</div>
+  <div class="setup-step"><div class="step-num">1</div><div class="step-text"><a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> を開く → プロジェクト作成</div></div>
+  <div class="setup-step"><div class="step-num">2</div><div class="step-text">「APIとサービス」→「ライブラリ」→「Google Drive API」を有効化</div></div>
+  <div class="setup-step"><div class="step-num">3</div><div class="step-text">「認証情報」→「OAuthクライアントID」→ アプリ種類：<code>ウェブアプリ</code><br>承認済みオリジンにNetlifyのURL（<code>https://xxx.netlify.app</code>）を追加</div></div>
+  <div class="setup-step"><div class="step-num">4</div><div class="step-text">取得したClient IDをここに貼り付けて「保存」を押す：<input class="client-id-input" id="clientIdInput" placeholder="例: 123456789-abc.apps.googleusercontent.com"><button class="save-client-id-btn" onclick="saveClientId()">Client IDを保存して同期を有効化</button></div></div>
+</div>
+
+<!-- New Memo View -->
+<div id="newView">
+  <div class="new-memo-area">
+    <div class="input-card">
+      <textarea class="memo-textarea" id="memoText" placeholder="メモを入力…&#10;（現場の状況・アイデア・気づきなど）" rows="3"></textarea>
+      <div class="attachments-preview" id="attachmentsPreview"></div>
+      <div class="rec-indicator" id="recIndicator">
+        <div class="rec-dot"></div>
+        <span class="rec-timer" id="recTimer">00:00</span>
+        <span style="font-size:12px;color:var(--text-mid);">録音中...</span>
+        <button class="stop-rec-btn" onclick="stopRecording()">停止</button>
+      </div>
+      <div class="tag-row">
+        <span style="font-size:11px;color:var(--text-dim);white-space:nowrap;">タグ:</span>
+        <button class="quick-tag" onclick="toggleTag(this,'現場')">🏗 現場</button>
+        <button class="quick-tag" onclick="toggleTag(this,'アイデア')">💡 アイデア</button>
+        <button class="quick-tag" onclick="toggleTag(this,'機材')">📦 機材</button>
+        <button class="quick-tag" onclick="toggleTag(this,'クライアント')">🤝 クライアント</button>
+        <button class="quick-tag" onclick="toggleTag(this,'TODO')">✅ TODO</button>
+        <button class="quick-tag" onclick="toggleTag(this,'問題')">⚠️ 問題</button>
+      </div>
+      <div class="input-toolbar">
+        <button class="tool-btn" id="micBtn" onclick="toggleRecording()">🎙</button>
+        <button class="tool-btn" onclick="document.getElementById('photoInput').click()">📷</button>
+        <input type="file" id="photoInput" accept="image/*" multiple onchange="handlePhotos(event)">
+        <div class="spacer"></div>
+        <button class="submit-btn" onclick="saveMemo()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- List View -->
+<div id="listView" style="display:none;">
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <span style="color:var(--text-dim);font-size:16px;">🔍</span>
+      <input type="text" class="search-input" id="searchInput" placeholder="メモを検索…" oninput="renderList()">
+    </div>
+  </div>
+  <div class="memo-list" id="memoList"></div>
+</div>
+
+<!-- Photo Viewer -->
+<div class="photo-viewer" id="photoViewer" onclick="closeViewer()">
+  <button class="close-viewer" onclick="closeViewer()">✕</button>
+  <img id="viewerImg" src="" alt="">
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== 設定 =====
+let GOOGLE_CLIENT_ID = localStorage.getItem('fieldmemo_client_id') || '';
+const DRIVE_FILE_NAME = 'fieldmemo_data.json';
+
+// ===== 状態 =====
+let accessToken = null;
+let driveFileId = null;
+let isSyncing = false;
+let memos = JSON.parse(localStorage.getItem('fieldmemos') || '[]');
+let pendingPhotos = [], pendingAudio = null, selectedTags = [];
+let mediaRecorder = null, audioChunks = [], recTimerInterval = null, recSeconds = 0;
+let audioElements = {}, autoSyncTimer = null;
+
+function saveLocal() { localStorage.setItem('fieldmemos', JSON.stringify(memos)); }
+
+// ===== Client ID保存 =====
+function saveClientId() {
+  const val = document.getElementById('clientIdInput').value.trim();
+  if (!val) { showToast('Client IDを入力してください'); return; }
+  GOOGLE_CLIENT_ID = val;
+  localStorage.setItem('fieldmemo_client_id', val);
+  document.getElementById('setupGuide').classList.remove('visible');
+  showToast('✅ 保存しました！Googleでサインインしてください');
+  showAuthOverlay();
+}
+
+// ===== Auth =====
+function showAuthOverlay() { document.getElementById('authOverlay').classList.add('visible'); }
+function skipSync() {
+  document.getElementById('authOverlay').classList.remove('visible');
+  localStorage.setItem('fieldmemo_skipped','1');
+  updateSyncUI('local','ローカルモード（同期なし）');
+}
+
+function signInGoogle() {
+  if (!GOOGLE_CLIENT_ID) {
+    document.getElementById('authOverlay').classList.remove('visible');
+    document.getElementById('setupGuide').classList.add('visible');
+    showToast('まずClient IDを設定してください');
+    return;
+  }
+  const scope = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
+  const redirectUri = window.location.origin + window.location.pathname;
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&prompt=consent`;
+  window.location.href = url;
+}
+
+function handleOAuthCallback() {
+  const hash = window.location.hash;
+  if (!hash || !hash.includes('access_token')) return;
+  const params = new URLSearchParams(hash.substring(1));
+  const token = params.get('access_token');
+  const expiresIn = params.get('expires_in');
+  if (token) {
+    accessToken = token;
+    localStorage.setItem('fieldmemo_token', token);
+    localStorage.setItem('fieldmemo_token_expiry', (Date.now() + parseInt(expiresIn)*1000).toString());
+    history.replaceState(null,'',window.location.pathname);
+    document.getElementById('authOverlay').classList.remove('visible');
+    initDriveSync();
+  }
+}
+
+function loadSavedToken() {
+  const token = localStorage.getItem('fieldmemo_token');
+  const expiry = localStorage.getItem('fieldmemo_token_expiry');
+  if (token && expiry && Date.now() < parseInt(expiry)) { accessToken = token; return true; }
+  localStorage.removeItem('fieldmemo_token'); localStorage.removeItem('fieldmemo_token_expiry');
+  return false;
+}
+
+// ===== Drive API =====
+async function initDriveSync() {
+  if (!accessToken) return;
+  updateSyncUI('syncing','接続中...');
+  try {
+    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers:{Authorization:`Bearer ${accessToken}`} });
+    const user = await userRes.json();
+    localStorage.setItem('fieldmemo_user', user.email || '');
+
+    const searchRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}' and trashed=false&spaces=appDataFolder`,
+      { headers:{Authorization:`Bearer ${accessToken}`} }
+    );
+    const searchData = await searchRes.json();
+
+    if (searchData.files && searchData.files.length > 0) {
+      driveFileId = searchData.files[0].id;
+      await loadFromDrive();
+    } else {
+      await saveToDrive();
+    }
+
+    updateSyncUI('synced', `同期中 · ${user.email}`);
+    const btn = document.getElementById('syncActionBtn');
+    btn.textContent = '今すぐ同期'; btn.classList.remove('connect');
+    btn.onclick = () => { syncDrive(); };
+
+    if (autoSyncTimer) clearInterval(autoSyncTimer);
+    autoSyncTimer = setInterval(syncDrive, 30000);
+  } catch(e) {
+    console.error(e); updateSyncUI('error','接続エラー'); showToast('❌ Drive接続エラー');
+  }
+}
+
+async function saveToDrive() {
+  if (!accessToken || isSyncing) return;
+  isSyncing = true;
+  const data = JSON.stringify({ memos, updatedAt: new Date().toISOString() });
+  try {
+    if (driveFileId) {
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { Authorization:`Bearer ${accessToken}`, 'Content-Type':'application/json' },
+        body: data
+      });
+    } else {
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify({name:DRIVE_FILE_NAME,parents:['appDataFolder']})], {type:'application/json'}));
+      form.append('file', new Blob([data], {type:'application/json'}));
+      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method:'POST', headers:{Authorization:`Bearer ${accessToken}`}, body:form
+      });
+      const file = await res.json();
+      driveFileId = file.id;
+    }
+    const email = localStorage.getItem('fieldmemo_user') || '';
+    updateSyncUI('synced', `同期済み · ${email}`);
+  } catch(e) { console.error(e); updateSyncUI('error','保存失敗'); }
+  finally { isSyncing = false; }
+}
+
+async function loadFromDrive() {
+  if (!accessToken || !driveFileId) return;
+  updateSyncUI('syncing','読み込み中...');
+  try {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+      headers:{Authorization:`Bearer ${accessToken}`}
+    });
+    const data = await res.json();
+    if (data.memos) {
+      const localIds = new Set(memos.map(m => m.id));
+      const remoteOnly = data.memos.filter(m => !localIds.has(m.id));
+      memos = [...memos, ...remoteOnly].sort((a,b) => b.id - a.id);
+      saveLocal();
+    }
+    const email = localStorage.getItem('fieldmemo_user') || '';
+    updateSyncUI('synced', `同期済み · ${email}`);
+    if (document.getElementById('listView').style.display !== 'none') renderList();
+  } catch(e) { console.error(e); updateSyncUI('error','読み込み失敗'); }
+}
+
+async function syncDrive() {
+  await loadFromDrive();
+  await saveToDrive();
+  showToast('☁️ 同期しました');
+}
+
+function updateSyncUI(status, text) {
+  document.getElementById('syncDot').className = `sync-dot ${status}`;
+  document.getElementById('syncText').textContent = text;
+}
+
+// ===== View =====
+function switchView(v) {
+  document.getElementById('newView').style.display = v==='new'?'block':'none';
+  document.getElementById('listView').style.display = v==='list'?'block':'none';
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active',(i===0&&v==='new')||(i===1&&v==='list')));
+  if (v==='list') renderList();
+}
+
+// ===== Tags =====
+function toggleTag(el,tag) {
+  const i=selectedTags.indexOf(tag);
+  if(i>=0){selectedTags.splice(i,1);el.classList.remove('selected');}
+  else{selectedTags.push(tag);el.classList.add('selected');}
+}
+
+// ===== Photos =====
+function handlePhotos(e) {
+  Array.from(e.target.files).forEach(f=>{
+    const r=new FileReader(); r.onload=ev=>{pendingPhotos.push(ev.target.result);renderAttachments();}; r.readAsDataURL(f);
+  }); e.target.value='';
+}
+function renderAttachments() {
+  const c=document.getElementById('attachmentsPreview'); c.innerHTML='';
+  pendingPhotos.forEach((s,i)=>{const t=document.createElement('div');t.className='attach-thumb';t.innerHTML=`<img src="${s}"><button class="remove-btn" onclick="removePhoto(${i})">✕</button>`;c.appendChild(t);});
+  if(pendingAudio){const ap=document.createElement('div');ap.className='audio-preview';ap.innerHTML=`🎙 音声メモ <span class="duration">${formatTime(pendingAudio.duration||0)}</span><button onclick="removePendingAudio()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;margin-left:8px;">✕</button>`;c.appendChild(ap);}
+}
+function removePhoto(i){pendingPhotos.splice(i,1);renderAttachments();}
+function removePendingAudio(){pendingAudio=null;renderAttachments();}
+
+// ===== Recording =====
+async function toggleRecording(){if(mediaRecorder&&mediaRecorder.state==='recording')stopRecording();else startRecording();}
+async function startRecording(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    audioChunks=[];
+    mediaRecorder=new MediaRecorder(stream);
+    mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
+    mediaRecorder.onstop=()=>{
+      const blob=new Blob(audioChunks,{type:'audio/webm'});
+      const r=new FileReader();r.onload=ev=>{pendingAudio={data:ev.target.result,duration:recSeconds};renderAttachments();};r.readAsDataURL(blob);
+      stream.getTracks().forEach(t=>t.stop());
+      clearInterval(recTimerInterval);
+      document.getElementById('recIndicator').classList.remove('visible');
+      document.getElementById('micBtn').classList.remove('recording');
+      recSeconds=0;
+    };
+    mediaRecorder.start(); recSeconds=0;
+    document.getElementById('recIndicator').classList.add('visible');
+    document.getElementById('micBtn').classList.add('recording');
+    recTimerInterval=setInterval(()=>{recSeconds++;document.getElementById('recTimer').textContent=formatTime(recSeconds);},1000);
+  }catch(e){showToast('マイクへのアクセスが必要です');}
+}
+function stopRecording(){if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();}
+
+// ===== Save Memo =====
+async function saveMemo(){
+  const text=document.getElementById('memoText').value.trim();
+  if(!text&&pendingPhotos.length===0&&!pendingAudio){showToast('内容を入力してください');return;}
+  const memo={id:Date.now(),text,photos:[...pendingPhotos],audio:pendingAudio?{...pendingAudio}:null,tags:[...selectedTags],ts:new Date().toISOString()};
+  if(memo.audio)memo.transcript='（音声メモ保存済み）';
+  memos.unshift(memo); saveLocal();
+  document.getElementById('memoText').value=''; pendingPhotos=[]; pendingAudio=null; selectedTags=[];
+  document.querySelectorAll('.quick-tag').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('attachmentsPreview').innerHTML='';
+  showToast('✅ 保存しました'); switchView('list');
+  if(accessToken){updateSyncUI('syncing','同期中...');await saveToDrive();}
+}
+
+// ===== Render List =====
+function renderList(){
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
+  const c=document.getElementById('memoList'); c.innerHTML='';
+  let filtered=memos.filter(m=>!q||(m.text&&m.text.toLowerCase().includes(q))||(m.tags&&m.tags.some(t=>t.toLowerCase().includes(q))));
+  if(filtered.length===0){c.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">${q?'検索結果なし':'メモがまだありません<br>「＋ 新規」から追加してください'}</div></div>`;return;}
+  let lastDate='';
+  filtered.forEach(memo=>{
+    const d=new Date(memo.ts);
+    const ds=d.toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'});
+    if(ds!==lastDate){const s=document.createElement('div');s.className='date-sep';s.innerHTML=`<div class="date-sep-line"></div><div class="date-sep-text">${ds}</div><div class="date-sep-line"></div>`;c.appendChild(s);lastDate=ds;}
+    c.appendChild(createMemoCard(memo));
+  });
+}
+
+function createMemoCard(memo){
+  const card=document.createElement('div'); card.className='memo-card'; card.id=`memo-${memo.id}`;
+  const d=new Date(memo.ts);
+  const time=d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  let icon='📝',cls='type-text';
+  if(memo.audio&&memo.photos&&memo.photos.length>0){icon='🌐';cls='type-mixed';}
+  else if(memo.audio){icon='🎙';cls='type-audio';}
+  else if(memo.photos&&memo.photos.length>0){icon='📷';cls='type-photo';}
+  const tags=(memo.tags||[]).map(t=>`<span class="tag-chip">${t}</span>`).join('');
+  const isLong=memo.text&&memo.text.length>120;
+  let photos='';
+  if(memo.photos&&memo.photos.length>0){
+    const cnt=Math.min(memo.photos.length,4);
+    photos=`<div class="photo-grid count-${cnt}">${memo.photos.slice(0,cnt).map(s=>`<div class="photo-item" onclick="openViewer('${s}')"><img src="${s}" loading="lazy"></div>`).join('')}</div>`;
+  }
+  let audio='';
+  if(memo.audio){
+    const dur=formatTime(memo.audio.duration||0);
+    audio=`<div class="audio-player"><button class="play-btn" onclick="togglePlay(${memo.id})">▶</button><div class="audio-progress-wrap"><input type="range" class="audio-progress" id="prog-${memo.id}" value="0" min="0" max="100" oninput="seekAudio(${memo.id},this.value)"><div class="audio-time"><span id="cur-${memo.id}">0:00</span><span>${dur}</span></div></div></div>${memo.transcript?`<div class="transcript"><div class="transcript-label">AUDIO NOTE</div>${memo.transcript}</div>`:''}`;
+  }
+  card.innerHTML=`<div class="memo-header"><div class="memo-type-icon ${cls}">${icon}</div><div class="memo-meta"><span class="memo-time">${time}</span><div class="memo-tags">${tags}</div></div><div class="memo-actions"><button class="action-btn" onclick="deleteMemo(${memo.id})">🗑</button></div></div><div class="memo-body">${memo.text?`<div class="memo-text${isLong?' collapsed':''}" id="txt-${memo.id}">${escapeHtml(memo.text)}</div>${isLong?`<button class="expand-btn" onclick="expandText(${memo.id})">続きを読む ▾</button>`:''}`:''} ${photos}${audio}</div>`;
+  return card;
+}
+
+function expandText(id){const el=document.getElementById(`txt-${id}`);el.classList.remove('collapsed');const nb=el.nextElementSibling;if(nb&&nb.classList.contains('expand-btn'))nb.remove();}
+
+// ===== Audio Player =====
+function togglePlay(id){
+  const memo=memos.find(m=>m.id===id); if(!memo||!memo.audio)return;
+  if(!audioElements[id]){
+    audioElements[id]=new Audio(memo.audio.data);
+    audioElements[id].ontimeupdate=()=>{const a=audioElements[id];const pct=a.duration?(a.currentTime/a.duration)*100:0;const p=document.getElementById(`prog-${id}`);const c=document.getElementById(`cur-${id}`);if(p)p.value=pct;if(c)c.textContent=formatTime(Math.floor(a.currentTime));};
+    audioElements[id].onended=()=>{const b=document.querySelector(`#memo-${id} .play-btn`);if(b)b.textContent='▶';};
+  }
+  const a=audioElements[id];const btn=document.querySelector(`#memo-${id} .play-btn`);
+  if(a.paused){Object.entries(audioElements).forEach(([k,au])=>{if(k!=id&&!au.paused){au.pause();const b=document.querySelector(`#memo-${k} .play-btn`);if(b)b.textContent='▶';}});a.play();if(btn)btn.textContent='⏸';}
+  else{a.pause();if(btn)btn.textContent='▶';}
+}
+function seekAudio(id,val){const a=audioElements[id];if(a&&a.duration)a.currentTime=(val/100)*a.duration;}
+
+// ===== Delete =====
+async function deleteMemo(id){
+  memos=memos.filter(m=>m.id!==id); saveLocal();
+  const card=document.getElementById(`memo-${id}`);
+  if(card){card.style.opacity='0';card.style.transform='translateX(40px)';card.style.transition='all 0.25s';setTimeout(()=>renderList(),260);}
+  showToast('🗑 削除しました');
+  if(accessToken)saveToDrive();
+}
+
+// ===== Photo Viewer =====
+function openViewer(src){document.getElementById('viewerImg').src=src;document.getElementById('photoViewer').classList.add('visible');document.body.style.overflow='hidden';}
+function closeViewer(){document.getElementById('photoViewer').classList.remove('visible');document.body.style.overflow='';}
+
+// ===== Export =====
+document.getElementById('exportBtn').onclick=()=>{
+  if(!memos.length){showToast('メモがありません');return;}
+  let md=`# FIELD MEMO\n${new Date().toLocaleString('ja-JP')}\n\n---\n\n`;
+  memos.forEach(m=>{const d=new Date(m.ts);md+=`## ${d.toLocaleString('ja-JP')}\n`;if(m.tags&&m.tags.length)md+=`タグ: ${m.tags.join(' / ')}\n`;if(m.text)md+=`\n${m.text}\n`;if(m.audio)md+=`\n🎙 音声 (${formatTime(m.audio.duration||0)})\n`;if(m.photos&&m.photos.length)md+=`📷 写真 ${m.photos.length}枚\n`;md+=`\n---\n\n`;});
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));a.download=`fieldmemo_${new Date().toISOString().slice(0,10)}.md`;a.click();
+  showToast('📄 エクスポートしました');
+};
+
+// ===== Utils =====
+function formatTime(s){return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+// ===== Init =====
+window.addEventListener('load',()=>{
+  if(window.location.hash.includes('access_token')){handleOAuthCallback();return;}
+  if(loadSavedToken()){initDriveSync();}
+  else if(!localStorage.getItem('fieldmemo_skipped')){setTimeout(()=>showAuthOverlay(),800);}
+});
+</script>
+</body>
+</html>
